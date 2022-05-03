@@ -132,10 +132,11 @@ import {getURL} from '../config.js'
 
 import jsPDF from 'jspdf'   
 import 'jspdf-autotable'
-import html2pdf from 'html2pdf.js'
 
 import axios from "axios";
 import moment from "moment";
+
+import {ImgBitcoin, ImgESA} from "../Constants";
 
 export default {
     name: 'HomeView', 
@@ -286,6 +287,9 @@ export default {
                 var b = moment(inicial);
 
                 Out = a.diff(b,"minutes");
+                if (Out < 0) {
+                    Out = Out * -1
+                }
             }
 
             return Out
@@ -299,12 +303,16 @@ export default {
                 var b = moment(inicial);
 
                 Out = a.diff(b,"minutes");
+                if (Out < 0) {
+                    Out = Out * -1
+                }
             }
 
             if (Out >= meta){return true }else{ return false}
         },
         CalculateDate: function (inicial, final, meta){
             let Out = null
+            
             if (final == null) {
                 Out = "0"
             }else {
@@ -312,6 +320,9 @@ export default {
                 var b = moment(inicial);
 
                 Out = a.diff(b,"minutes");
+                if (Out < 0) {
+                    Out = Out * -1
+                }
             }
             return Out+" /"+meta
         },
@@ -388,6 +399,45 @@ export default {
             });
             doc.save('TrabajadoMes.pdf');
         },
+        GroupByName:  function(arrayIn, arraySave){
+            arrayIn.forEach(element => {
+                var name = element.NAME_EMPLEADO_CORRECT
+                //var area = element.NAME_AREA
+                //var row = {"NAME_EMPLEADO_CORRECT": name,"NAME_AREA": area};
+                if (arraySave == null) {
+                    arraySave.push(name)
+                }else{
+                    if (arraySave.indexOf(name) == -1) {
+                        arraySave.push(name)
+                    }
+                }
+            });
+
+        },
+        FilterEmpleadoNotAsistence: function(){
+           if (this.arrayNameEmpledosAsistence != null) {
+               var difference = [];
+                this.arrayNameAllEmpleados.forEach(item => {
+
+                    if (this.arrayNameEmpledosAsistence.indexOf(item) == -1) {
+                         difference.push(item)
+                    }
+
+                })
+                
+                //console.log("Asis: "+this.arrayNameEmpledosAsistence.length)
+                //console.log("Not Asis: "+this.arrayNameAllEmpleados.length)
+                //console.log("Dif: "+difference.length)
+                this.arrayProp = difference
+           }
+        },
+        showFaltantes: function() {
+            if (this.faltantes == false) {
+                this.faltantes = true
+            } else {
+                this.faltantes = false
+            }
+        },
         headRows: function() {
           return [
             { NAME_EMPLEADO_CORRECT: 'NAME',
@@ -401,7 +451,6 @@ export default {
         },
         exportPDF2: function () {
             // Custom style - shows how custom styles can be applied
-
               var doc = new jsPDF('l')
               doc.autoTable({
                 head: this.headRows(),
@@ -454,30 +503,6 @@ export default {
                   },
                 },
                 allSectionHooks: true,
-                // Use for customizing texts or styles of specific cells after they have been formatted by this plugin.
-                // This hook is called just before the column width and other features are computed.
-                didParseCell: function (data) {
-                  
-                  /* if (data.row.index === 5) {
-                    data.cell.styles.fillColor = [40, 170, 100]
-                  }
-                  if (
-                    (data.row.section === 'head' || data.row.section === 'foot') &&
-                    data.column.dataKey === 'expenses'
-                  ) {
-                    data.cell.text = '' // Use an icon in didDrawCell instead
-                  } */
-
-                  /* if (data.column.dataKey === 'city') {
-                    data.cell.styles.font = 'mitubachi'
-                    if (data.row.section === 'head') {
-                      data.cell.text = 'シティ'
-                    }
-                    if (data.row.index === 0 && data.row.section === 'body') {
-                      data.cell.text = 'とうきょう'
-                    }
-                  } */
-                },
                 // Use for changing styles with jspdf functions or customize the positioning of cells or cell text
                 // just before they are drawn to the page.
                 willDrawCell: function (data) {
@@ -489,7 +514,7 @@ export default {
                     var index = valueCell.indexOf('/')
   
                     var leng = valueCell.length 
-                    var minJob = valueCell.substring(0,index)
+                    var minJob = valueCell.substring(0,index).trim()
                     var requireMin = valueCell.substring(index+1, leng)
                     //quitando paalabra min
                     var indexReq = requireMin.indexOf('m')
@@ -498,14 +523,33 @@ export default {
 
                     console.log('min: '+ minJob)
                     console.log('requireMin: '+ reqMin)
+
+                    if (minJob < 0) {
+                        minJob = minJob * -1
+                    }
                     
                     if (minJob == 0 ) {
                       doc.setTextColor(231, 76, 60) // Red
-                    }else if( minJob > 0 && minJob <= reqMin){
+                      console.log('Condicion: Red '+minJob)
+                    }else if((minJob > 0 && minJob < 100) || (minJob >= 100 && minJob <= reqMin)){
+                      doc.setTextColor(221, 231, 60) // Yellow
+                      console.log('Condicion: Yellow '+minJob)
+                    }else if(minJob == reqMin || minJob > reqMin){
+                      doc.setTextColor(40, 170, 100) // Green
+                      console.log('Condicion: Green '+minJob)
+                    }  
+                    
+                    /* 
+                    if (minJob == 0 ) {
+                      doc.setTextColor(231, 76, 60) // Red
+                    }else if( minJob > 0 && minJob < 100){
+                      doc.setTextColor(221, 231, 60) // Yellow
+                    }else if( minJob >= 100 && minJob <= reqMin){
                       doc.setTextColor(221, 231, 60) // Yellow
                     }else if(minJob == reqMin || minJob > reqMin){
                       doc.setTextColor(40, 170, 100) // Green
-                    }                
+                    }
+                    */
 
                   }
                 },
@@ -525,11 +569,13 @@ export default {
                     )
                   }
                 }, */
-
+                
                 didDrawPage: function (data) {
                   doc.setFontSize(18)
                   doc.text('SISTEMA DE MARCACION CHIVO S.A. DE C.V.', data.settings.margin.left, 22)
-                  //doc.addImage('../assets/bitcoin.png','PNG', 22, 22)
+                  doc.addImage(ImgESA,'PNG', 225, 11, 20, 17)
+                  doc.addImage(ImgBitcoin,'PNG', 250, 11, 20, 17)
+                  doc.add
                 },
               })
 
@@ -543,45 +589,6 @@ export default {
               }
 
               doc.save(nameFile+'.pdf');
-        },
-        GroupByName:  function(arrayIn, arraySave){
-            arrayIn.forEach(element => {
-                var name = element.NAME_EMPLEADO_CORRECT
-                //var area = element.NAME_AREA
-                //var row = {"NAME_EMPLEADO_CORRECT": name,"NAME_AREA": area};
-                if (arraySave == null) {
-                    arraySave.push(name)
-                }else{
-                    if (arraySave.indexOf(name) == -1) {
-                        arraySave.push(name)
-                    }
-                }
-            });
-
-        },
-        FilterEmpleadoNotAsistence: function(){
-           if (this.arrayNameEmpledosAsistence != null) {
-               var difference = [];
-                this.arrayNameAllEmpleados.forEach(item => {
-
-                    if (this.arrayNameEmpledosAsistence.indexOf(item) == -1) {
-                         difference.push(item)
-                    }
-
-                })
-                
-                //console.log("Asis: "+this.arrayNameEmpledosAsistence.length)
-                //console.log("Not Asis: "+this.arrayNameAllEmpleados.length)
-                //console.log("Dif: "+difference.length)
-                this.arrayProp = difference
-           }
-        },
-        showFaltantes: function() {
-            if (this.faltantes == false) {
-                this.faltantes = true
-            } else {
-                this.faltantes = false
-            }
         }
     },
     mounted(){
